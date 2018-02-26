@@ -92,7 +92,7 @@ int sloth_digest(char outputBuffer[], const char *string)
     EVP_DigestFinal_ex(mdctx, hash, &md_len);
     EVP_MD_CTX_destroy(mdctx);
 
-    int i;
+    unsigned int i;
     for (i = 0; i < md_len; i++) {
         sprintf(outputBuffer + (i * 2), "%02x", hash[i]);
     }
