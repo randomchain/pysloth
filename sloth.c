@@ -6,10 +6,11 @@ author: benjamin wesolowski
 #include <string.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
+#include <gmp.h>
 
-#include "gmp.h"
+#define PROGRESS
 
-/* #include "sloth.h" */
+static void update_progress(int);
 
 void next_prime(mpz_t p, const mpz_t n) {
     if (mpz_even_p(n)) mpz_add_ui(p,n,1);
@@ -25,38 +26,38 @@ void prev_prime(mpz_t p, const mpz_t n) {
 
 // the sqrt permutation as specified in the paper (returns a sqrt of either input or -input)
 void sqrt_permutation(mpz_t result, const mpz_t input, const mpz_t p, const mpz_t e) {
-	mpz_t tmp;
-	mpz_init(tmp);
-	if (mpz_jacobi(input, p) == 1) {
-		mpz_powm(tmp, input, e, p);
-		if (mpz_even_p(tmp)) mpz_set(result, tmp);
-		else mpz_sub(result, p, tmp);
-	}
-	else {
-		mpz_sub(tmp, p, input);
+    mpz_t tmp;
+    mpz_init(tmp);
+    if (mpz_jacobi(input, p) == 1) {
+        mpz_powm(tmp, input, e, p);
+        if (mpz_even_p(tmp)) mpz_set(result, tmp);
+        else mpz_sub(result, p, tmp);
+    }
+    else {
+        mpz_sub(tmp, p, input);
         mpz_powm(tmp, tmp, e, p);
-		if (mpz_odd_p(tmp)) mpz_set(result, tmp);
-		else mpz_sub(result, p, tmp);
-	}
+        if (mpz_odd_p(tmp)) mpz_set(result, tmp);
+        else mpz_sub(result, p, tmp);
+    }
 
-	mpz_clear(tmp);
+    mpz_clear(tmp);
 }
 
 // inverse of sqrt_permutation, so basicaly computes squares
 void invert_sqrt(mpz_t result, const mpz_t input, const mpz_t p) {
-	mpz_t tmp;
-	mpz_init(tmp);
-	if (mpz_even_p(input)) {
-		mpz_mul(tmp, input, input);
-		mpz_mod(result, tmp, p);
-	}
-	else {
-		mpz_mul(tmp, input, input);
-		mpz_mod(tmp, tmp, p);
-		mpz_sub(result, p, tmp);
-	}
+    mpz_t tmp;
+    mpz_init(tmp);
+    if (mpz_even_p(input)) {
+        mpz_mul(tmp, input, input);
+        mpz_mod(result, tmp, p);
+    }
+    else {
+        mpz_mul(tmp, input, input);
+        mpz_mod(tmp, tmp, p);
+        mpz_sub(result, p, tmp);
+    }
 
-	mpz_clear(tmp);
+    mpz_clear(tmp);
 }
 
 // computes input1 ^ flip ^ flip ^ ... ^ flip for the minimal number of "^ flip" (at least 1, at most 2) such
@@ -153,11 +154,28 @@ void sloth_core(mpz_t witness, const mpz_t seed, int iterations, const mpz_t p) 
     mpz_add_ui(e, e, 1);
     mpz_tdiv_q_ui(e, e, 4);
 
-    for (int i = 0; i < iterations; ++i) {
+#ifdef PROGRESS
+    int prev_i = 0;
+    int progress_step = iterations / 200;
+#endif
+
+    int i = 1;
+    for (;i <= iterations; ++i) {
         //permutation(a, a);
         xor_mod(a,a,ones,p);
         sqrt_permutation(a, a, p, e);
+#ifndef PROGRESS
     }
+#else
+        if (i % progress_step == 0) {
+            update_progress(i - prev_i);
+            prev_i = i;
+        }
+    }
+    if (prev_i != iterations) {
+        update_progress(i - prev_i);
+    }
+#endif
 
     mpz_set(witness, a);
 

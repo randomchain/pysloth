@@ -4,7 +4,10 @@ ffibuilder = FFI()
 
 ffibuilder.cdef(
 r"""
+extern "Python" void update_progress(int);
+
 void sloth(char witness[], char outputBuffer[], char string[], int bits, int iterations);
+
 int sloth_verification(const char witness[], const char final_hash[], const char input_string[], int bits, int iterations);
 """
 )
