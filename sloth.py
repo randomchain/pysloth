@@ -3,7 +3,6 @@ import tqdm
 from _sloth import ffi, lib
 
 PROGRESS = True
-
 progressbar = None
 
 @ffi.def_extern()
@@ -27,7 +26,7 @@ class Sloth(object):
         Can be used for verification
     """
 
-    def __init__(self, data=None, bits=1024, iterations=50000,
+    def __init__(self, data=None, bits=2048, iterations=50000,
                  final_hash=None, witness=None):
         assert isinstance(bits, int)
         assert (bits % 512) == 0
@@ -38,8 +37,9 @@ class Sloth(object):
         self.iterations = iterations
         self.final_hash = final_hash
         self.witness = final_hash
-        self._compute_thread = None
-        self._compute_lock = Lock()
+        self.valid = None
+        self._thread = None
+        self._lock = Lock()
 
     @property
     def data(self):
@@ -54,43 +54,70 @@ class Sloth(object):
         self._data = value.encode('utf8')
 
     def compute(self):
-        global progressbar
-        if self._compute_thread is not None:
-            return
-        def run():
+        def compute_task():
             out = ffi.new('char[512]')
             witness = ffi.new('char[{}]'.format(int(self.bits/4)))
 
             lib.sloth(witness, out, self.data, self.bits, self.iterations)
-            with self._compute_lock:
+            with self._lock:
                 self.witness = ffi.string(witness)
                 self.final_hash = ffi.string(out)
-            if PROGRESS:
-                progressbar.close()
-            print("sloth computation done")
-        if PROGRESS:
-            progressbar = tqdm.tqdm(total=self.iterations)
-        self._compute_thread = Thread(target=run, daemon=True)
-        self._compute_thread.start()
-
-    def wait(self, timeout=None):
-        if self._compute_thread is not None:
-            self._compute_thread.join(timeout=timeout)
+        self._run(task=compute_task)
 
     def verify(self):
-        return lib.sloth_verification(self.witness, self.final_hash, self.data, self.bits, self.iterations) == 1
+        def verify_task():
+            verification = lib.sloth_verification(self.witness, self.final_hash, self.data, self.bits, self.iterations)
+            with self._lock:
+                self.valid = verification == 1
+        self._run(task=verify_task)
+
+    def _run(self, task):
+        global progressbar
+        self.wait()
+        if PROGRESS:
+            progressbar = tqdm.tqdm(total=self.iterations)
+        def wrapped_task():
+            task()
+            if PROGRESS:
+                progressbar.close()
+        self._thread = Thread(target=wrapped_task, daemon=True)
+        self._thread.start()
+
+    def wait(self, timeout=None):
+        if self._thread is not None:
+            self._thread.join(timeout=timeout)
 
 
 if __name__ == "__main__":
+    sloth_art = """
+      `""==,,__
+        `"==..__"=..__ _    _..-==""_
+             .-,`"=/ /\ \""/_)==""``
+            ( (    | | | \/ |
+             \ '.  |  \;  \ /
+              |  \ |   |   ||
+         ,-._.'  |_|   |   ||
+        .\_/\     -'   ;   Y
+       |  `  |        /    |-.
+       '. __/_    _.-'     /'
+              `'-.._____.-'
+"""
+    print(sloth_art)
     import time
+    from datetime import timedelta
+    s = Sloth(sloth_art, iterations=10000)
+    print("Input data: {}\nBits: {}\tIterations: {}".format(s.data, s.bits, s.iterations))
     t = time.time()
-    s = Sloth("testy mctest string", iterations=50000)
+    print("{:=^50}".format(" COMPUTE "))
     s.compute()
-    s._compute_thread.join()
-    print("witness:", s.witness)
-    print("output hash:", s.final_hash)
-    print("Time:", time.time()-t)
+    s.wait()
+    print("Witness:", s.witness)
+    print("Output data:", s.final_hash)
+    print("Time:", timedelta(seconds=time.time()-t))
+    print("{:=^50}".format(" VERIFY "))
     t = time.time()
-    print("VALID" if s.verify() else "INVALID")
-    print("Time:", time.time()-t)
+    s.verify()
+    s.wait()
+    print("Verify:", "VALID" if s.valid else "INVALID", "sloth")
+    print("Time:", timedelta(seconds=time.time()-t))
 

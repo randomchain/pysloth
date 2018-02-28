@@ -211,11 +211,28 @@ int sloth_verification_core(const char witness[], const mpz_t seed, int iteratio
     mpz_mul_2exp(ones, ones, mpz_sizeinbase(p,2) >> 1);
     mpz_sub_ui(ones, ones, 1);
 
-    for (int i = 0; i < iterations; ++i) {
+#ifdef PROGRESS
+    int prev_i = 0;
+    int progress_step = iterations / 200;
+#endif
+
+    int i = 1;
+    for (;i <= iterations; ++i) {
         invert_sqrt(a, a, p);
         //invert_permutation(a, a);
         xor_mod(a,a,ones,p);
+#ifndef PROGRESS
     }
+#else
+        if (i % progress_step == 0) {
+            update_progress(i - prev_i);
+            prev_i = i;
+        }
+    }
+    if (prev_i != iterations) {
+        update_progress(i - prev_i);
+    }
+#endif
 
     int verif = (mpz_cmp(seed, a) == 0); // true if seed == a
     mpz_clear(a);
