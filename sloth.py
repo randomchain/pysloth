@@ -49,6 +49,7 @@ class Sloth(object):
     def data(self, value):
         if isinstance(value, bytes):
             self._data = value
+            return
         elif not isinstance(value, str):
             value = str(value)
         self._data = value.encode('utf8')
