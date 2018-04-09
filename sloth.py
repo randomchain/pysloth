@@ -1,4 +1,3 @@
-import binascii
 from threading import Thread, Lock
 import tqdm
 from _sloth import ffi, lib
@@ -68,8 +67,8 @@ class Sloth(object):
                 self.iterations
             )
             with self._lock:
-                self.witness = binascii.unhexlify(ffi.string(witness))
-                self.final_hash = binascii.unhexlify(ffi.string(out))
+                self.witness = ffi.string(witness)
+                self.final_hash = ffi.string(out)
         self._run(task=compute_task)
 
     def verify(self):
