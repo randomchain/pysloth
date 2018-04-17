@@ -1,3 +1,4 @@
+from binascii import a2b_hex, b2a_hex
 from threading import Thread, Lock
 import tqdm
 from _sloth import ffi, lib
@@ -67,13 +68,14 @@ class Sloth(object):
                 self.iterations
             )
             with self._lock:
-                self.witness = ffi.string(witness)
-                self.final_hash = ffi.string(out)
+                raw_witness = ffi.string(ffi.cast("char*", witness))
+                self.witness = a2b_hex(raw_witness if len(raw_witness) % 2 == 0 else b'0' + raw_witness)
+                self.final_hash = a2b_hex(ffi.string(out))
         self._run(task=compute_task)
 
     def verify(self):
         def verify_task():
-            verification = lib.sloth_verification(self.witness, self.final_hash, self.data, self.bits, self.iterations)
+            verification = lib.sloth_verification(b2a_hex(self.witness), b2a_hex(self.final_hash), self.data, self.bits, self.iterations)
             with self._lock:
                 self.valid = verification == 1
         self._run(task=verify_task)
@@ -112,7 +114,7 @@ if __name__ == "__main__":
     print(sloth_art)
     import time
     from datetime import timedelta
-    s = Sloth(sloth_art, iterations=5000)
+    s = Sloth(sloth_art, iterations=500)
     print("Bits: {}\tIterations: {}".format(s.bits, s.iterations))
     t = time.time()
     print("{:=^50}".format(" COMPUTE "))
