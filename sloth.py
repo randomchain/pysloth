@@ -37,7 +37,7 @@ class Sloth(object):
         self.bits = bits
         self.iterations = iterations
         self.final_hash = final_hash
-        self.witness = final_hash
+        self.witness = witness
         self.valid = None
         self._thread = None
         self._lock = Lock()
