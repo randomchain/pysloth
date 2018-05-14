@@ -247,6 +247,12 @@ int sloth_verification(const char witness[], const char final_hash[], const char
     mpz_init(p);
     mpz_init(seed_mpz);
 
+    char* witness_hash = malloc(sizeof(char)*512);
+    sloth_digest(witness_hash, witness);
+    if (strcmp(witness_hash, final_hash) != 0) {
+        return 0;
+    }
+
     sloth_preprocessing(p,seed_mpz,input_string,bits);
 
     return sloth_verification_core(witness, seed_mpz, iterations, p);
