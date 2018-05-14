@@ -33,7 +33,8 @@ class Sloth(object):
         assert (bits % 512) == 0
         assert isinstance(iterations, int)
         self._data = None
-        self.data = data
+        if data is not None:
+            self.data = data
         self.bits = bits
         self.iterations = iterations
         self.final_hash = final_hash
