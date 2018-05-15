@@ -1,7 +1,3 @@
-/*
-project: trx
-author: benjamin wesolowski
-*/
 #include <stdio.h>
 #include <string.h>
 #include <openssl/evp.h>
@@ -70,7 +66,7 @@ void xor_mod(mpz_t result, const mpz_t input1, const mpz_t flip, const mpz_t mod
 }
 
 // SHA512
-int sloth_digest(char outputBuffer[], const char *string)
+int sloth_digest(unsigned char outputBuffer[], const void *inputBuffer, size_t input_len)
 {
 
     EVP_MD_CTX *mdctx;
@@ -89,16 +85,11 @@ int sloth_digest(char outputBuffer[], const char *string)
     mdctx = EVP_MD_CTX_create();
 
     EVP_DigestInit_ex(mdctx, md, NULL);
-    EVP_DigestUpdate(mdctx, string, strlen(string));
+    EVP_DigestUpdate(mdctx, inputBuffer, input_len); 
     EVP_DigestFinal_ex(mdctx, hash, &md_len);
     EVP_MD_CTX_destroy(mdctx);
 
-    unsigned int i;
-    for (i = 0; i < md_len; i++) {
-        sprintf(outputBuffer + (i * 2), "%02x", hash[i]);
-    }
-
-    outputBuffer[i * 2] = '\0';
+    memcpy(outputBuffer, hash, md_len);
 
     return 0;
 }
@@ -110,31 +101,33 @@ void sloth_preprocessing(mpz_t p, mpz_t seed, const char string[], int bits) {
 
     // find the prime
     int nbr_blocks = bits / 512;
-    char hexa[bits/4 + 1]; // number of hexadecimal charater + 1
+    unsigned char bytes[bits/8]; // number of bytes
 
     for (int i = 0; i < nbr_blocks; ++i) {
         sprintf(str, "%s%s%c", string, "prime", (char)('0' + i));
-        sloth_digest(hexa + (128 * i), str);
+        sloth_digest(bytes + (64 * i), str, strlen(str));
     }
 
     mpz_t tmp;
     mpz_init(tmp);
 
-    mpz_set_str(p, hexa, 16);
+    mpz_import(p, bits / 8, 1, 1, 0, 0, bytes);
 
     if (!mpz_tstbit(p,bits - 1)) mpz_combit(p, bits - 1);
 
     do next_prime(p,p);
     while (mpz_mod_ui(tmp, p, 4) != 3);
 
+    //gmp_printf("Prime is %Zd\n", p);
     // find the seed
     for (int i = 0; i < nbr_blocks; ++i) {
         sprintf(str, "%s%s%c", string, "seed", (char)('0' + i));
-        sloth_digest(hexa + (128 * i), str);
+        sloth_digest(bytes + (64 * i), str, strlen(str));
     }
 
-    mpz_set_str(seed, hexa, 16);
+    mpz_import(seed, bits / 8, 1, 1, 0, 0, bytes);
     mpz_mod(seed, seed, p);
+    //gmp_printf("Seed is %Zd\n", seed);
 
     mpz_clear(tmp);
 }
@@ -156,7 +149,8 @@ void sloth_core(mpz_t witness, const mpz_t seed, int iterations, const mpz_t p) 
 
 #ifdef PROGRESS
     int prev_i = 0;
-    int progress_step = iterations / 200;
+    int progress_step = 10;
+    if (iterations > 200) { progress_step = iterations / 200; }
 #endif
 
     int i = 1;
@@ -184,7 +178,7 @@ void sloth_core(mpz_t witness, const mpz_t seed, int iterations, const mpz_t p) 
 }
 
 // computes witness = the sloth witness, for the given seed, number of iterations and prime p
-void sloth(char witness[], char outputBuffer[], char string[], int bits, int iterations) {
+void sloth(unsigned char witness[], size_t* witness_size, unsigned char outputBuffer[], const char string[], int bits, int iterations) {
     mpz_t p, seed_mpz, witness_mpz;
     mpz_init(p);
     mpz_init(seed_mpz);
@@ -192,9 +186,10 @@ void sloth(char witness[], char outputBuffer[], char string[], int bits, int ite
     sloth_preprocessing(p,seed_mpz,string,bits);
 
     sloth_core(witness_mpz, seed_mpz, iterations, p);
-    mpz_get_str(witness, 16, witness_mpz);
-
-    sloth_digest(outputBuffer, witness);
+    
+    //gmp_printf("Witness is %Zd\n", witness_mpz);
+    mpz_export(witness, witness_size, 1, 1, 0, 0, witness_mpz);
+    sloth_digest(outputBuffer, witness, *witness_size);
 
     mpz_clear(p);
     mpz_clear(seed_mpz);
@@ -202,10 +197,11 @@ void sloth(char witness[], char outputBuffer[], char string[], int bits, int ite
 }
 
 // checks if the given witness indeed corresponds to the given seed, number of iterations and prime number
-int sloth_verification_core(const char witness[], const mpz_t seed, int iterations, const mpz_t p) {
+int sloth_verification_core(const unsigned char witness[], size_t witness_size, const mpz_t seed, int iterations, const mpz_t p) {
     mpz_t a, ones;
     mpz_init(a);
-    mpz_set_str(a, witness, 16);
+    mpz_import(a, witness_size, 1, 1, 0, 0, witness);
+    //gmp_printf("Witness is %Zd\n", a);
 
     mpz_init_set_ui(ones, 1);
     mpz_mul_2exp(ones, ones, mpz_sizeinbase(p,2) >> 1);
@@ -213,7 +209,8 @@ int sloth_verification_core(const char witness[], const mpz_t seed, int iteratio
 
 #ifdef PROGRESS
     int prev_i = 0;
-    int progress_step = iterations / 200;
+    int progress_step = 10;
+    if (iterations > 200) { progress_step = iterations / 200; }
 #endif
 
     int i = 1;
@@ -242,18 +239,20 @@ int sloth_verification_core(const char witness[], const mpz_t seed, int iteratio
 }
 
 // computes witness = the sloth witness, for the given seed, number of iterations and prime p
-int sloth_verification(const char witness[], const char final_hash[], const char input_string[], int bits, int iterations) {
+int sloth_verification(const unsigned char witness[], const unsigned char final_hash[], const char input_string[], int bits, int iterations) {
+    size_t final_hash_size = 64;
+    size_t witness_size = bits / 8;
     mpz_t p, seed_mpz;
     mpz_init(p);
     mpz_init(seed_mpz);
 
-    char* witness_hash = malloc(sizeof(char)*512);
-    sloth_digest(witness_hash, witness);
-    if (strcmp(witness_hash, final_hash) != 0) {
-        return 0;
-    }
+    unsigned char* witness_hash = malloc(final_hash_size);
+    sloth_digest(witness_hash, witness, witness_size);
+    int res = memcmp(witness_hash, final_hash, final_hash_size);
+    free(witness_hash);
+    if (res != 0) { return 0; }
 
     sloth_preprocessing(p,seed_mpz,input_string,bits);
 
-    return sloth_verification_core(witness, seed_mpz, iterations, p);
+    return sloth_verification_core(witness, witness_size, seed_mpz, iterations, p);
 }
