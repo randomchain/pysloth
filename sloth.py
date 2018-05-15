@@ -28,7 +28,7 @@ class Sloth(object):
     """
 
     def __init__(self, data=None, bits=2048, iterations=50000,
-                 final_hash=None, witness=None):
+                 final_hash=None, witness=None, threading=True):
         assert isinstance(bits, int)
         assert (bits % 512) == 0
         assert isinstance(iterations, int)
@@ -40,6 +40,7 @@ class Sloth(object):
         self.final_hash = final_hash
         self.witness = witness
         self.valid = None
+        self.threading = threading
         self._thread = None
         self._lock = Lock()
 
@@ -83,15 +84,19 @@ class Sloth(object):
 
     def _run(self, task):
         global progressbar
-        self.wait()
+        if self.threading:
+            self.wait()
         if PROGRESS:
             progressbar = tqdm.tqdm(total=self.iterations)
         def wrapped_task():
             task()
             if PROGRESS:
                 progressbar.close()
-        self._thread = Thread(target=wrapped_task, daemon=True)
-        self._thread.start()
+        if self.threading:
+            self._thread = Thread(target=wrapped_task, daemon=True)
+            self._thread.start()
+        else:
+            wrapped_task()
 
     def wait(self, timeout=None):
         if self._thread is not None:
@@ -115,19 +120,17 @@ if __name__ == "__main__":
     print(sloth_art)
     import time
     from datetime import timedelta
-    s = Sloth(sloth_art, iterations=500)
+    s = Sloth(sloth_art, iterations=500, threading=False)
     print("Bits: {}\tIterations: {}".format(s.bits, s.iterations))
     t = time.time()
     print("{:=^50}".format(" COMPUTE "))
     s.compute()
-    s.wait()
     print("Witness:", s.witness)
     print("Output data:", s.final_hash)
     print("Time:", timedelta(seconds=time.time()-t))
     print("{:=^50}".format(" VERIFY "))
     t = time.time()
     s.verify()
-    s.wait()
     print("Verify:", "VALID" if s.valid else "INVALID", "sloth")
     print("Time:", timedelta(seconds=time.time()-t))
 
