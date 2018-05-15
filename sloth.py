@@ -59,25 +59,26 @@ class Sloth(object):
 
     def compute(self):
         def compute_task():
-            out = ffi.new('char[256]')
-            witness = ffi.new('char[{}]'.format(int(self.bits/2)))
-
+            out = ffi.new('unsigned char[64]')
+            witness = ffi.new('unsigned char[{}]'.format(int(self.bits / 8)))
+            witness_size = ffi.new('size_t*')
             lib.sloth(
                 witness,
+                witness_size,
                 out,
                 self.data,
                 self.bits,
                 self.iterations
             )
+            witness_size = witness_size[0]
             with self._lock:
-                raw_witness = ffi.string(ffi.cast("char*", witness))
-                self.witness = a2b_hex(raw_witness if len(raw_witness) % 2 == 0 else b'0' + raw_witness)
-                self.final_hash = a2b_hex(ffi.string(out))
+                self.witness = bytes(ffi.buffer(witness, witness_size))
+                self.final_hash = bytes(ffi.buffer(out))
         self._run(task=compute_task)
 
     def verify(self):
         def verify_task():
-            verification = lib.sloth_verification(b2a_hex(self.witness), b2a_hex(self.final_hash), self.data, self.bits, self.iterations)
+            verification = lib.sloth_verification(self.witness, len(self.witness), self.final_hash, self.data, self.bits, self.iterations)
             with self._lock:
                 self.valid = verification == 1
         self._run(task=verify_task)
@@ -120,7 +121,7 @@ if __name__ == "__main__":
     print(sloth_art)
     import time
     from datetime import timedelta
-    s = Sloth(sloth_art, iterations=500, threading=False)
+    s = Sloth(sloth_art, bits=1024, iterations=100, threading=False)
     print("Bits: {}\tIterations: {}".format(s.bits, s.iterations))
     t = time.time()
     print("{:=^50}".format(" COMPUTE "))

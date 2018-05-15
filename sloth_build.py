@@ -6,9 +6,9 @@ ffibuilder.cdef(
 r"""
 extern "Python" void update_progress(int);
 
-void sloth(char witness[], char outputBuffer[], char string[], int bits, int iterations);
+void sloth(unsigned char witness[], size_t* witness_size, unsigned char outputBuffer[], char string[], int bits, int iterations);
 
-int sloth_verification(const char witness[], const char final_hash[], const char input_string[], int bits, int iterations);
+int sloth_verification(const unsigned char witness[], size_t witness_size, const unsigned char final_hash[], const char input_string[], int bits, int iterations);
 """
 )
 
@@ -25,7 +25,8 @@ ffibuilder.set_source(
     library_dirs=[
         '/usr/local/lib',
         '/usr/local/opt/openssl/lib',
-    ]
+    ],
+    extra_compile_args=['-std=c99'],
 )
 
 if __name__ == "__main__":
