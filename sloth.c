@@ -4,7 +4,7 @@
 #include <openssl/bio.h>
 #include <gmp.h>
 
-#define PROGRESS
+/* #define PROGRESS */
 
 static void update_progress(int);
 

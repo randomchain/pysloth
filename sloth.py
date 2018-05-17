@@ -3,13 +3,18 @@ from threading import Thread, Lock
 import tqdm
 from _sloth import ffi, lib
 
-PROGRESS = True
+PROGRESS = False
 progressbar = None
 
-@ffi.def_extern()
-def update_progress(delta_iterations):
-    if progressbar is not None:
-        progressbar.update(delta_iterations)
+if PROGRESS:
+    @ffi.def_extern()
+    def update_progress(delta_iterations):
+        if progressbar is not None:
+            progressbar.update(delta_iterations)
+else:
+    @ffi.def_extern()
+    def update_progress(delta_iterations):
+        pass
 
 class Sloth(object):
     """
