@@ -1,34 +1,41 @@
+from os import urandom
 from functools import wraps
 import time
 import sloth
 
 TIME_LOG = 'time.log'
 
-INPUT = b'/\x97s\xb8i\xd1\xa5\x84\xcf\x16\x7f\xcc\xc0\xae\xbb\x05!\xf1\x19\x17P\x82\x05\xef\xfcu\x87\x1c"\x10\xaa\xddD\x01\xf4\xcd\xbe\xcf\x87\x05A#\xf6\xaa\xd0Y\xe3\\\xf7\xa8\x08p\x8f\xd8\xfdEi\xdc\xda\xa1l1\x1cE'
-
 BITS = (512, 512 * 2, 512 * 3, 512 * 4, 512 * 5, 512 * 6, 512 * 7, 512 * 8)
-ITERATIONS = (500, 5000, 10000, 25000, 50000, 75000)
+base_iteration = 500
+ITERATIONS = [base_iteration * i * 4 for i in range(1, 21)]
+LOOPS = 5
 
 def timed_task(s, task):
     t_0 = time.time()
     getattr(s, task)()
     s.wait()
-    t = time.time() - t_0
-    print(t)
+    return time.time() - t_0
+
+def sloth_timing(bits, iterations, loops):
+    sum_comp = 0
+    sum_veri = 0
+    for i in range(loops):
+        print("Loop", i + 1, "of", loops)
+        s = sloth.Sloth(data=urandom(64),
+                        bits=bits,
+                        iterations=iterations)
+
+        sum_comp += timed_task(s, 'compute')
+        assert s.final_hash is not None
+        sum_veri = timed_task(s, 'verify')
+        if not s.valid:
+            print("NOT VALID", "\n{}\n{}".format(s.final_hash, s.witness))
+            print("USED INPUT ->", s.data)
+    print("Avg. time:\n\tcomputation -> {}\n\tverification -> {}".format(
+        sum_comp/loops, sum_veri/loops))
     if TIME_LOG:
         with open(TIME_LOG, 'a+') as logf:
-            print("," + str(t), end='', file=logf)
-
-
-def sloth_timing(bits, iterations):
-    s = sloth.Sloth(data=INPUT,
-                    bits=bits,
-                    iterations=iterations)
-
-    timed_task(s, 'compute')
-    assert s.final_hash is not None
-    timed_task(s, 'verify')
-    assert s.valid, "{}\n{}".format(s.final_hash, s.witness)
+            print(",{},{}".format(sum_comp/loops, sum_veri/loops), file=logf)
 
 
 def sloth_timing_configurations(log_file):
@@ -36,14 +43,14 @@ def sloth_timing_configurations(log_file):
     TIME_LOG = log_file
     if TIME_LOG:
         with open(TIME_LOG, 'w') as logf:
-            print("BITS,ITERATIONS,COMPUTATION,VERIFICATION", end='', file=logf)
+            print("BITS,ITERATIONS,COMPUTATION,VERIFICATION", file=logf)
     for b in BITS:
         for i in ITERATIONS:
             print(b, i)
             if TIME_LOG:
                 with open(TIME_LOG, 'a+') as logf:
-                    print("\n" + str(b) + "," + str(i), end='', file=logf)
-            sloth_timing(b, i)
+                    print(str(b) + "," + str(i), end='', file=logf)
+            sloth_timing(b, i, LOOPS)
 
 
 if __name__ == "__main__":
