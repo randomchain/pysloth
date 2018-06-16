@@ -1,9 +1,9 @@
-from binascii import a2b_hex, b2a_hex
+import sys
 from threading import Thread, Lock
 import tqdm
 from _sloth import ffi, lib
 
-PROGRESS = False
+PROGRESS = True
 progressbar = None
 
 if PROGRESS:
@@ -124,6 +124,9 @@ if __name__ == "__main__":
               `'-.._____.-'
 """
     print(sloth_art)
+    if len(sys.argv) > 1:
+        sloth_art = sys.argv[1].encode('utf-8')
+        print("input is", sloth_art)
     import time
     from datetime import timedelta
     s = Sloth(sloth_art, bits=1024, iterations=100, threading=False)

@@ -4,7 +4,7 @@
 #include <openssl/bio.h>
 #include <gmp.h>
 
-/* #define PROGRESS */
+#define PROGRESS
 
 static void update_progress(int);
 
@@ -248,24 +248,24 @@ int sloth_verification(const unsigned char witness[], size_t witness_size, const
     unsigned char* witness_hash = malloc(final_hash_size);
     sloth_digest(witness_hash, witness, witness_size);
     int res = memcmp(witness_hash, final_hash, final_hash_size);
-    free(witness_hash);
     if (res != 0) {
         puts("HASHED DOES NOT MATCH!");
         puts("Final hash");
-        for (int i = 0; i < final_hash_size; ++i) {
+        for (size_t i = 0; i < final_hash_size; ++i) {
             printf("%02x ", final_hash[i]);
         }
         puts("\nWitness hash");
-        for (int i = 0; i < final_hash_size; ++i) {
+        for (size_t i = 0; i < final_hash_size; ++i) {
             printf("%02x ", witness_hash[i]);
         }
         puts("\nRAW Witness");
-        for (int i = 0; i < witness_size; ++i) {
+        for (size_t i = 0; i < witness_size; ++i) {
             printf("%02x ", witness[i]);
         }
         puts("");
         return 0;
     }
+    free(witness_hash);
 
     sloth_preprocessing(p,seed_mpz,input_string,bits);
 
