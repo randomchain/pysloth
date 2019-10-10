@@ -6,6 +6,7 @@
 
 #define PROGRESS
 
+// Used by python module to display progress
 static void update_progress(int);
 
 void next_prime(mpz_t p, const mpz_t n) {
@@ -66,9 +67,7 @@ void xor_mod(mpz_t result, const mpz_t input1, const mpz_t flip, const mpz_t mod
 }
 
 // SHA512
-int sloth_digest(unsigned char outputBuffer[], const void *inputBuffer, size_t input_len)
-{
-
+int sloth_digest(unsigned char outputBuffer[], const void *inputBuffer, size_t input_len) {
     EVP_MD_CTX *mdctx;
     const EVP_MD *md;
     unsigned char hash[EVP_MAX_MD_SIZE];
@@ -152,7 +151,6 @@ void sloth_core(mpz_t witness, const mpz_t seed, int iterations, const mpz_t p) 
     int progress_step = 10;
     if (iterations > 200) { progress_step = iterations / 200; }
 #endif
-
     int i = 1;
     for (;i <= iterations; ++i) {
         //permutation(a, a);
@@ -166,11 +164,9 @@ void sloth_core(mpz_t witness, const mpz_t seed, int iterations, const mpz_t p) 
             prev_i = i;
         }
     }
-    if (prev_i != iterations) {
+    if (prev_i != iterations)
         update_progress(i - prev_i);
-    }
 #endif
-
     mpz_set(witness, a);
 
     mpz_clear(a);
@@ -178,7 +174,8 @@ void sloth_core(mpz_t witness, const mpz_t seed, int iterations, const mpz_t p) 
 }
 
 // computes witness = the sloth witness, for the given seed, number of iterations and prime p
-void sloth(unsigned char witness[], size_t* witness_size, unsigned char outputBuffer[], const char string[], int bits, int iterations) {
+void sloth(unsigned char witness[], size_t* witness_size, unsigned char outputBuffer[], 
+           const char string[], int bits, int iterations) {
     mpz_t p, seed_mpz, witness_mpz;
     mpz_init(p);
     mpz_init(seed_mpz);
@@ -197,7 +194,8 @@ void sloth(unsigned char witness[], size_t* witness_size, unsigned char outputBu
 }
 
 // checks if the given witness indeed corresponds to the given seed, number of iterations and prime number
-int sloth_verification_core(const unsigned char witness[], size_t witness_size, const mpz_t seed, int iterations, const mpz_t p) {
+int sloth_verification_core(const unsigned char witness[], size_t witness_size, 
+                            const mpz_t seed, int iterations, const mpz_t p) {
     mpz_t a, ones;
     mpz_init(a);
     mpz_import(a, witness_size, 1, 1, 0, 0, witness);
@@ -212,7 +210,6 @@ int sloth_verification_core(const unsigned char witness[], size_t witness_size, 
     int progress_step = 10;
     if (iterations > 200) { progress_step = iterations / 200; }
 #endif
-
     int i = 1;
     for (;i <= iterations; ++i) {
         invert_sqrt(a, a, p);
@@ -226,11 +223,9 @@ int sloth_verification_core(const unsigned char witness[], size_t witness_size, 
             prev_i = i;
         }
     }
-    if (prev_i != iterations) {
+    if (prev_i != iterations)
         update_progress(i - prev_i);
-    }
 #endif
-
     int verif = (mpz_cmp(seed, a) == 0); // true if seed == a
     mpz_clear(a);
     mpz_clear(ones);
@@ -239,7 +234,9 @@ int sloth_verification_core(const unsigned char witness[], size_t witness_size, 
 }
 
 // computes witness = the sloth witness, for the given seed, number of iterations and prime p
-int sloth_verification(const unsigned char witness[], size_t witness_size, const unsigned char final_hash[], const char input_string[], int bits, int iterations) {
+int sloth_verification(const unsigned char witness[], size_t witness_size, 
+                       const unsigned char final_hash[], const char input_string[], 
+                       int bits, int iterations) {
     size_t final_hash_size = 64;
     mpz_t p, seed_mpz;
     mpz_init(p);
@@ -266,8 +263,7 @@ int sloth_verification(const unsigned char witness[], size_t witness_size, const
         return 0;
     }
     free(witness_hash);
-
     sloth_preprocessing(p,seed_mpz,input_string,bits);
-
+    
     return sloth_verification_core(witness, witness_size, seed_mpz, iterations, p);
 }
