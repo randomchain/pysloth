@@ -264,11 +264,17 @@ int sloth_verification(const unsigned char witness[], size_t witness_size, const
         }
         puts("");
         free(witness_hash);
+        mpz_clear(p);
+        mpz_clear(seed_mpz);
         return 0;
     }
     free(witness_hash);
 
     sloth_preprocessing(p,seed_mpz,input_string,bits);
 
-    return sloth_verification_core(witness, witness_size, seed_mpz, iterations, p);
+    res = sloth_verification_core(witness, witness_size, seed_mpz, iterations, p);
+    mpz_clear(p);
+    mpz_clear(seed_mpz);
+    
+    return res;
 }
