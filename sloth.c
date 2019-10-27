@@ -263,6 +263,7 @@ int sloth_verification(const unsigned char witness[], size_t witness_size, const
             printf("%02x ", witness[i]);
         }
         puts("");
+        free(witness_hash);
         return 0;
     }
     free(witness_hash);
