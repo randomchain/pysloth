@@ -2,7 +2,7 @@
 
 Python wrapper around the sloth algorithm by Benjamin Wesolowski in A random zoo: sloth, unicorn, and trx
 
-THe python module exposes an api for the sloth c-extension.
+The python module exposes an api for the sloth c-extension.
 
 ## Install
 
