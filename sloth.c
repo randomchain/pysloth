@@ -171,6 +171,7 @@ void sloth_core(mpz_t witness, const mpz_t seed, int iterations, const mpz_t p) 
 
     mpz_clear(a);
     mpz_clear(ones);
+    mpz_clear(e);
 }
 
 // computes witness = the sloth witness, for the given seed, number of iterations and prime p
@@ -260,10 +261,16 @@ int sloth_verification(const unsigned char witness[], size_t witness_size,
             printf("%02x ", witness[i]);
         }
         puts("");
+        free(witness_hash);
+        mpz_clear(p);
+        mpz_clear(seed_mpz);
         return 0;
     }
     free(witness_hash);
     sloth_preprocessing(p,seed_mpz,input_string,bits);
+    res = sloth_verification_core(witness, witness_size, seed_mpz, iterations, p);
+    mpz_clear(p);
+    mpz_clear(seed_mpz);
     
-    return sloth_verification_core(witness, witness_size, seed_mpz, iterations, p);
+    return res;
 }
