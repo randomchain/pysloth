@@ -1,6 +1,7 @@
 import os
 import sys
 from threading import Lock, Thread
+from typing import Callable, Optional, Union
 
 try:
     import tqdm
@@ -27,7 +28,7 @@ else:
         pass
 
 
-class Sloth(object):
+class Sloth:
     """
     Object wrapper for the sloth c library.
 
@@ -41,16 +42,17 @@ class Sloth(object):
         Can be used for verification
     :param witness: Sloth output witness as bytes
         Can be used for verification
+    :param blocking: Block if True else run tasks in thread
     """
 
     def __init__(
         self,
-        data=None,
-        bits=2048,
-        iterations=50000,
-        final_hash=None,
-        witness=None,
-        threading=True,
+        data: Optional[Union[bytes, str]] = None,
+        bits: int = 2048,
+        iterations: int = 50000,
+        final_hash: Optional[bytes] = None,
+        witness: Optional[bytes] = None,
+        blocking: bool = False,
     ):
         assert isinstance(bits, int)
         assert (bits % 512) == 0
@@ -63,12 +65,12 @@ class Sloth(object):
         self.final_hash = final_hash
         self.witness = witness
         self.valid = None
-        self.threading = threading
+        self.blocking = blocking
         self._thread = None
         self._lock = Lock()
 
     @property
-    def data(self):
+    def data(self) -> Optional[bytes]:
         return self._data
 
     @data.setter
@@ -95,6 +97,7 @@ class Sloth(object):
 
     def verify(self):
         def verify_task():
+            assert self.witness is not None
             verification = lib.sloth_verification(
                 self.witness,
                 len(self.witness),
@@ -108,9 +111,9 @@ class Sloth(object):
 
         self._run(task=verify_task)
 
-    def _run(self, task):
+    def _run(self, task: Callable):
         global progressbar
-        if self.threading:
+        if not self.blocking:
             self.wait()
         if PROGRESS:
             progressbar = tqdm.tqdm(total=self.iterations)
@@ -120,13 +123,13 @@ class Sloth(object):
             if PROGRESS:
                 progressbar.close()
 
-        if self.threading:
+        if self.blocking:
+            wrapped_task()
+        else:
             self._thread = Thread(target=wrapped_task, daemon=True)
             self._thread.start()
-        else:
-            wrapped_task()
 
-    def wait(self, timeout=None):
+    def wait(self, timeout: Optional[int] = None):
         if self._thread is not None:
             self._thread.join(timeout=timeout)
 
@@ -152,7 +155,7 @@ if __name__ == "__main__":
     import time
     from datetime import timedelta
 
-    s = Sloth(sloth_art, bits=1024, iterations=100, threading=False)
+    s = Sloth(sloth_art, bits=1024, iterations=100, blocking=True)
     print("Bits: {}\tIterations: {}".format(s.bits, s.iterations))
     t = time.time()
     print("{:=^50}".format(" COMPUTE "))
