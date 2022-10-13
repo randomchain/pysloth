@@ -1,5 +1,6 @@
 import sys
-from threading import Thread, Lock
+from threading import Lock, Thread
+
 import tqdm
 from _sloth import ffi, lib
 
@@ -7,14 +8,18 @@ PROGRESS = True
 progressbar = None
 
 if PROGRESS:
+
     @ffi.def_extern()
     def update_progress(delta_iterations):
         if progressbar is not None:
             progressbar.update(delta_iterations)
+
 else:
+
     @ffi.def_extern()
     def update_progress(delta_iterations):
         pass
+
 
 class Sloth(object):
     """
@@ -32,8 +37,15 @@ class Sloth(object):
         Can be used for verification
     """
 
-    def __init__(self, data=None, bits=2048, iterations=50000,
-                 final_hash=None, witness=None, threading=True):
+    def __init__(
+        self,
+        data=None,
+        bits=2048,
+        iterations=50000,
+        final_hash=None,
+        witness=None,
+        threading=True,
+    ):
         assert isinstance(bits, int)
         assert (bits % 512) == 0
         assert isinstance(iterations, int)
@@ -60,32 +72,34 @@ class Sloth(object):
             return
         elif not isinstance(value, str):
             value = str(value)
-        self._data = value.encode('utf8')
+        self._data = value.encode("utf8")
 
     def compute(self):
         def compute_task():
-            out = ffi.new('unsigned char[64]')
-            witness = ffi.new('unsigned char[{}]'.format(int(self.bits / 8)))
-            witness_size = ffi.new('size_t*')
-            lib.sloth(
-                witness,
-                witness_size,
-                out,
-                self.data,
-                self.bits,
-                self.iterations
-            )
+            out = ffi.new("unsigned char[64]")
+            witness = ffi.new("unsigned char[{}]".format(int(self.bits / 8)))
+            witness_size = ffi.new("size_t*")
+            lib.sloth(witness, witness_size, out, self.data, self.bits, self.iterations)
             witness_size = witness_size[0]
             with self._lock:
                 self.witness = bytes(ffi.buffer(witness, witness_size))
                 self.final_hash = bytes(ffi.buffer(out))
+
         self._run(task=compute_task)
 
     def verify(self):
         def verify_task():
-            verification = lib.sloth_verification(self.witness, len(self.witness), self.final_hash, self.data, self.bits, self.iterations)
+            verification = lib.sloth_verification(
+                self.witness,
+                len(self.witness),
+                self.final_hash,
+                self.data,
+                self.bits,
+                self.iterations,
+            )
             with self._lock:
                 self.valid = verification == 1
+
         self._run(task=verify_task)
 
     def _run(self, task):
@@ -94,10 +108,12 @@ class Sloth(object):
             self.wait()
         if PROGRESS:
             progressbar = tqdm.tqdm(total=self.iterations)
+
         def wrapped_task():
             task()
             if PROGRESS:
                 progressbar.close()
+
         if self.threading:
             self._thread = Thread(target=wrapped_task, daemon=True)
             self._thread.start()
@@ -125,10 +141,11 @@ if __name__ == "__main__":
 """
     print(sloth_art)
     if len(sys.argv) > 1:
-        sloth_art = sys.argv[1].encode('utf-8')
+        sloth_art = sys.argv[1].encode("utf-8")
         print("input is", sloth_art)
     import time
     from datetime import timedelta
+
     s = Sloth(sloth_art, bits=1024, iterations=100, threading=False)
     print("Bits: {}\tIterations: {}".format(s.bits, s.iterations))
     t = time.time()
@@ -136,10 +153,9 @@ if __name__ == "__main__":
     s.compute()
     print("Witness:", s.witness)
     print("Output data:", s.final_hash)
-    print("Time:", timedelta(seconds=time.time()-t))
+    print("Time:", timedelta(seconds=time.time() - t))
     print("{:=^50}".format(" VERIFY "))
     t = time.time()
     s.verify()
     print("Verify:", "VALID" if s.valid else "INVALID", "sloth")
-    print("Time:", timedelta(seconds=time.time()-t))
-
+    print("Time:", timedelta(seconds=time.time() - t))
