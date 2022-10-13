@@ -1,10 +1,16 @@
+import os
 import sys
 from threading import Lock, Thread
 
-import tqdm
+try:
+    import tqdm
+    PROGRESS = bool(os.environ.get("PYSLOTH_PROGRESSBAR", True))
+except ImportError:
+    print("Install tqdm to enable progressbar", file=sys.stderr)
+    PROGRESS = False
+
 from _sloth import ffi, lib
 
-PROGRESS = True
 progressbar = None
 
 if PROGRESS:
